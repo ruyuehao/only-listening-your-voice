@@ -1,0 +1,32 @@
+# ESP-IDF build output
+build/
+sdkconfig
+sdkconfig.old
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Dependencies
+managed_components/
+
+# Flash
+*.bin
+*.elf
+*.map
+
+# Temporary
+~$*
+*.tmp

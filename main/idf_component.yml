@@ -1,0 +1,6 @@
+## IDF Component Manager Manifest File
+dependencies:
+  espressif/esp-tflite-micro:
+    version: ">=1.2.0"
+  espressif/led_strip:
+    version: ">=3.0.0"
