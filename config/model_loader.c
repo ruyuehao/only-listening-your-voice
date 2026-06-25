@@ -7,7 +7,6 @@
 #include "esp_log.h"
 #include "esp_partition.h"
 #include "esp_vfs_fat.h"
-#include "esp_spi_flash.h"
 #include "model_loader.h"
 
 static const char *TAG = "MODEL_LDR";
@@ -79,7 +78,7 @@ uint8_t *model_loader_read(const char *filename, size_t *out_size)
 
     size_t size = st.st_size;
     if (size == 0 || size > (512 * 1024)) {
-        ESP_LOGE(TAG, "Invalid file size: %d bytes", size);
+        ESP_LOGE(TAG, "Invalid file size: %zu bytes", size);
         return NULL;
     }
 

@@ -84,22 +84,33 @@ static void task_decision_main(void *pv_params)
             continue;
         }
 
-        /* VERIFYING 状态: 等待 SV 结果 */
+        /* VERIFYING 状态: 等待 SV 结果 (3s 超时回 IDLE) */
         if (state == STATE_VERIFYING) {
+            if (elapsed_ms >= 3000) {
+                ESP_LOGW(TAG, "VERIFYING timeout (3s) — returning to IDLE");
+                fsm_transition(STATE_IDLE);
+                s_state_enter_us = esp_timer_get_time();
+                continue;
+            }
+
             EventBits_t bits = xEventGroupWaitBits(
                 g_event_group, EVENT_SV_DONE,
-                pdTRUE,    /* 消费 */
-                pdTRUE,    /* 任意 */
+                pdTRUE,
+                pdFALSE,
                 pdMS_TO_TICKS(200)
             );
 
             if (bits & EVENT_SV_DONE) {
                 float sim = g_sv_similarity;
 
-                if (sim < -1.0f) {
-                    /* 模型加载失败或推理错误 → 拒绝 */
-                    ESP_LOGW(TAG, "SV failed (sim=%.2f) — REJECTED", sim);
+                if (sim < -2.5f) {
+                    /* -3.0: 模型加载失败 → 拒绝 */
+                    ESP_LOGW(TAG, "SV model load failed (sim=%.2f) — REJECTED", sim);
                     fsm_transition(STATE_REJECTED);
+                } else if (sim == -2.0f) {
+                    /* 无模板: 首次使用，放行 */
+                    ESP_LOGI(TAG, "No template enrolled — ACCEPTED (first-use policy)");
+                    fsm_transition(STATE_ACCEPTED);
                 } else if (sim >= SV_THRESHOLD) {
                     ESP_LOGI(TAG, "SV match (sim=%.4f >= %.2f) — ACCEPTED",
                              sim, SV_THRESHOLD);

@@ -86,8 +86,8 @@
 /* ================================================================
  * 事件组位定义
  * ================================================================ */
-#define EVENT_AUDIO_READY       (1 << 0)    // 环形缓冲区有新的 100ms 数据
-#define EVENT_KWS_TRIGGERED     (1 << 1)    // KWS 置信度 ≥ 阈值
-#define EVENT_KWS_RESULT_READY  (1 << 2)    // KWS 推理完成
-#define EVENT_SV_DONE           (1 << 3)    // SV 推理完成
-#define EVENT_TIMER_100MS       (1 << 4)    // 100ms 定时器到期
+#define EVENT_AUDIO_READY       (1 << 0)    /* AudioCapture: 100ms PCM 累积 (预留) */
+#define EVENT_KWS_TRIGGERED     (1 << 1)    /* KWS: 唤醒词检测到 */
+/* (1 << 2) reserved */
+#define EVENT_SV_DONE           (1 << 3)    /* SV: 声纹验证完成 */
+/* (1 << 4) reserved */

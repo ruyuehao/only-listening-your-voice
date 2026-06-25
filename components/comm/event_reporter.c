@@ -38,6 +38,7 @@ esp_err_t event_reporter_init(void)
     ret = uart_param_config(UART_PORT, &uart_config);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "UART param config failed: %s", esp_err_to_name(ret));
+        uart_driver_delete(UART_PORT);
         return ret;
     }
 
@@ -45,6 +46,7 @@ esp_err_t event_reporter_init(void)
                        UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "UART set pin failed: %s", esp_err_to_name(ret));
+        uart_driver_delete(UART_PORT);
         return ret;
     }
 

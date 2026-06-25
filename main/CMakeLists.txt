@@ -1,11 +1,12 @@
 idf_component_register(
-    SRCS "main.c" "../config/model_loader.c"
-    INCLUDE_DIRS "." "../config"
+    SRCS "main.c"
+    INCLUDE_DIRS "."
     REQUIRES
         nvs_flash
         driver
         esp_timer
         fatfs
+        config
         audio
         frontend
         kws

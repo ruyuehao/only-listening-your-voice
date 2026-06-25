@@ -98,7 +98,7 @@ static void task_audio_capture(void *pv_params)
                                          i2s_buf,
                                          sizeof(i2s_buf),
                                          &bytes_read,
-                                         portMAX_DELAY);
+                                         pdMS_TO_TICKS(100));  /* 100ms 超时 */
 
         if (ret != ESP_OK) {
             ESP_LOGE(TAG, "I2S read failed: %s (0x%x)", esp_err_to_name(ret), ret);

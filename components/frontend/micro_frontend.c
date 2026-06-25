@@ -18,7 +18,9 @@ static const char *TAG = "MFE";
 /* Hann 窗口: w[n] = 0.5 * (1 - cos(2πn / (N-1))), N=480 */
 static float s_hann_window[MF_WINDOW_SAMPLES];
 
-/* Mel 滤波器组: [MF_NUM_CHANNELS][MF_FFT_SIZE/2+1] — 只存非对称部分 */
+/* Mel 滤波器组: [40][257] float = 41KB BSS
+ * TODO: 预计算为 const 头文件放入 Flash 可节省 41KB RAM
+ */
 static float s_mel_filterbank[MF_NUM_CHANNELS][MF_FFT_SIZE / 2 + 1];
 
 /* 标记是否已完成全局初始化 */

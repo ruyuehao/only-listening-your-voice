@@ -23,6 +23,7 @@ static const tflite::Model        *s_model       = nullptr;
 static tflite::MicroInterpreter   *s_interpreter = nullptr;
 static TfLiteTensor               *s_input       = nullptr;
 static TfLiteTensor               *s_output      = nullptr;
+static tflite::MicroMutableOpResolver<12> *s_resolver = nullptr;
 
 /* 模型数据 — 保持引用防止被 GC，deinit 时释放 */
 static uint8_t                    *s_model_data  = nullptr;
@@ -83,19 +84,20 @@ esp_err_t kws_engine_init(void)
     }
 
     /* --- 3. 创建 Op Resolver + Interpreter --- */
-    auto *resolver = create_op_resolver();
-    if (resolver == nullptr) {
+    s_resolver = create_op_resolver();
+    if (s_resolver == nullptr) {
         free(s_model_data);
         s_model_data = nullptr;
         return ESP_ERR_NO_MEM;
     }
 
     s_interpreter = new tflite::MicroInterpreter(
-        s_model, *resolver, s_tensor_arena, KWS_TENSOR_ARENA_SIZE);
+        s_model, *s_resolver, s_tensor_arena, KWS_TENSOR_ARENA_SIZE);
 
     if (s_interpreter == nullptr) {
         ESP_LOGE(TAG, "Failed to create interpreter");
-        delete resolver;
+        delete s_resolver;
+        s_resolver = nullptr;
         free(s_model_data);
         s_model_data = nullptr;
         return ESP_ERR_NO_MEM;
@@ -107,7 +109,8 @@ esp_err_t kws_engine_init(void)
         ESP_LOGE(TAG, "Failed to allocate tensors: %d", status);
         delete s_interpreter;
         s_interpreter = nullptr;
-        delete resolver;
+        delete s_resolver;
+        s_resolver = nullptr;
         free(s_model_data);
         s_model_data = nullptr;
         return ESP_FAIL;
@@ -167,6 +170,10 @@ void kws_engine_deinit(void)
     if (s_interpreter != nullptr) {
         delete s_interpreter;
         s_interpreter = nullptr;
+    }
+    if (s_resolver != nullptr) {
+        delete s_resolver;
+        s_resolver = nullptr;
     }
     if (s_model_data != nullptr) {
         free(s_model_data);

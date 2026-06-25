@@ -28,6 +28,7 @@
 
 #include "pin_defs.h"
 #include "sys_config.h"
+#include "model_loader.h"
 
 /* 子系统 */
 #include "audio_capture.h"

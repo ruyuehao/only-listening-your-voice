@@ -194,8 +194,13 @@ esp_err_t sv_template_save(const float *embedding)
         return ret;
     }
 
-    nvs_commit(handle);
+    ret = nvs_commit(handle);
     nvs_close(handle);
+
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "nvs_commit failed: %s — template NOT persisted!", esp_err_to_name(ret));
+        return ret;
+    }
 
     ESP_LOGI(TAG, "Template saved to NVS (key=%s, %d bytes)",
              NVS_KEY_TEMPLATE, SV_EMBEDDING_DIM * (int)sizeof(float));

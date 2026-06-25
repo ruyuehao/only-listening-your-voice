@@ -97,9 +97,6 @@ static void task_sv_main(void *pv_params)
                  similarity, SV_THRESHOLD, latency_us,
                  uxTaskGetStackHighWaterMark(NULL));
 
-        /* 写入全局结果供 Decision 任务读取 */
-        g_sv_similarity = similarity;
-
         if (similarity >= SV_THRESHOLD) {
             ESP_LOGI(TAG, "*** VOICEPRINT MATCH ***");
         } else if (similarity >= 0.0f) {
@@ -108,6 +105,9 @@ static void task_sv_main(void *pv_params)
             ESP_LOGW(TAG, "No template enrolled — ACCEPT by default");
             similarity = 1.0f;  /* 无模板时放行 */
         }
+
+        /* 写入全局结果 (必须在 bypass 逻辑之后!) */
+        g_sv_similarity = similarity;
 
         /* 通知 Decision 任务 */
         xEventGroupSetBits(g_event_group, EVENT_SV_DONE);
