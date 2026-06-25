@@ -17,6 +17,7 @@
 #include "esp_log.h"
 #include "esp_system.h"
 #include "driver/gpio.h"
+#include "esp_timer.h"
 
 #include "pin_defs.h"
 #include "sys_config.h"
@@ -190,16 +191,21 @@ static void task_enroll_main(void *pv_params)
             continue;
         }
 
-        /* 长按检测: 持续按下 ≥ 3s */
+        /* 长按检测: 持续按下 ≥ 3s (超时保护: 10s 强制退出) */
         int64_t press_start = esp_timer_get_time();
 
         while (button_is_pressed()) {
             int64_t elapsed_ms = (esp_timer_get_time() - press_start) / 1000;
 
-            if (elapsed_ms >= ENROLL_LONG_PRESS_MS) {
+            if (elapsed_ms >= ENROLL_LONG_PRESS_MS && elapsed_ms < 10000) {
                 ESP_LOGI(TAG, "BOOT key long-press detected (%lldms)", elapsed_ms);
                 enroll_flow();
                 /* enroll_flow 调用 esp_restart()，不会返回 */
+                break;
+            }
+
+            if (elapsed_ms >= 10000) {
+                ESP_LOGW(TAG, "BOOT key stuck for 10s — ignoring");
                 break;
             }
 
@@ -216,7 +222,7 @@ esp_err_t enroll_task_create(void)
     BaseType_t created = xTaskCreate(
         task_enroll_main,
         "Task_Enroll",
-        4096,  /* 额外栈空间 */
+        STACK_DECISION,  /* 6KB — 按键监控 + 注册流程 */
         NULL,
         1,     /* 低优先级 */
         &s_task_handle

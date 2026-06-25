@@ -60,27 +60,13 @@ static void task_kws_main(void *pv_params)
 
     profile_pin_init();
 
-    /* 等待的事件位: AUDIO_READY | TIMER_100MS */
-    const EventBits_t wait_bits = EVENT_AUDIO_READY | EVENT_TIMER_100MS;
-    uint32_t          inference_count = 0;
+    uint32_t inference_count = 0;
 
     while (1) {
-        /* 阻塞等待事件 */
-        EventBits_t bits = xEventGroupWaitBits(
-            g_event_group,
-            wait_bits,
-            pdTRUE,     /* 消费 (清零) 事件位 */
-            pdTRUE,     /* 等待所有位中任意一个 */
-            pdMS_TO_TICKS(200)
-        );
+        /* 每 100ms 检查是否有足够特征帧用于推理 */
+        vTaskDelay(pdMS_TO_TICKS(KWS_INTERVAL_MS));
 
-        if (bits == 0) {
-            /* 超时 — 无音频数据 */
-            ESP_LOGW(TAG, "No audio event in 200ms — check I2S");
-            continue;
-        }
-
-        /* 检查是否有足够帧数 */
+        /* 检查是否有 ≥100 帧 */
         if (!feature_buffer_ready_for_kws()) {
             continue;
         }
@@ -111,8 +97,13 @@ static void task_kws_main(void *pv_params)
                  inference_count, confidence, latency_us,
                  uxTaskGetStackHighWaterMark(NULL));
 
-        /* --- 阈值判断 --- */
-        if (confidence >= KWS_THRESHOLD) {
+        /* --- 阈值判断 (带冷却: 2s 内不重复触发) --- */
+        static int64_t s_last_trigger_us = 0;
+        int64_t now_us = esp_timer_get_time();
+
+        if (confidence >= KWS_THRESHOLD &&
+            (now_us - s_last_trigger_us) > 2000000) {
+            s_last_trigger_us = now_us;
             ESP_LOGI(TAG, "*** WAKE WORD DETECTED (conf=%.4f >= %.2f) ***",
                      confidence, KWS_THRESHOLD);
             xEventGroupSetBits(g_event_group, EVENT_KWS_TRIGGERED);

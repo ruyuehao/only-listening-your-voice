@@ -55,22 +55,32 @@
 #define COMM_MAX_RETRIES        1           // 最大重试次数
 
 /* ================================================================
- * FreeRTOS 任务栈大小（单位：字，ESP32-C3 上 = 4 字节）
+ * FreeRTOS 任务栈大小（单位：字，ESP32-C3 上 4 字节/字）
+ *
+ * ESP32-C3 SRAM 总量 384KB，系统保留 ~100KB，可用 ~284KB。
+ * 当前分配控制在 ~50KB（栈合计），为 tensor arena 和模型留足空间。
  * ================================================================ */
-#define STACK_AUDIO_CAPTURE     4096
-#define STACK_KWS               8192
-#define STACK_SV                6144
-#define STACK_DECISION          2048
-#define STACK_COMM              2048
+#define STACK_AUDIO_CAPTURE     2048    /*  8KB — I2S DMA 循环 + 环形缓冲区写入 */
+#define STACK_FRONTEND          1536    /*  6KB — 10ms 流水线: PCM窗口+MFCC+push */
+#define STACK_KWS               3072    /* 12KB — TFLite 推理 + 4KB 临时输入缓冲 */
+#define STACK_SV                2560    /* 10KB — SV 模型加载+推理(堆分配为主) */
+#define STACK_DECISION          1536    /*  6KB — FSM 状态机 + LED 刷新 */
+#define STACK_COMM              1536    /*  6KB — UART JSON 上报（预留） */
 
 /* ================================================================
  * 任务优先级（FreeRTOS 数值越大优先级越高，最大 configMAX_PRIORITIES-1）
  * ESP-IDF 默认 configMAX_PRIORITIES = 25
+ *
+ * 优先级设计原则:
+ *   - 数据生产者 (Audio > Frontend) > 数据消费者 (KWS/SV) > 调度 (Decision/Enroll)
+ *   - 同层消费者可平等
  * ================================================================ */
 #define PRIO_AUDIO_CAPTURE      5
-#define PRIO_KWS                4
+#define PRIO_FRONTEND           4
+#define PRIO_KWS                3
 #define PRIO_SV                 3
 #define PRIO_DECISION           2
+#define PRIO_ENROLL             1
 #define PRIO_COMM               1
 
 /* ================================================================

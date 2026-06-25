@@ -8,6 +8,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/timers.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "led_strip.h"
 
 #include "pin_defs.h"

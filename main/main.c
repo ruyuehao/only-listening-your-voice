@@ -201,8 +201,5 @@ static esp_err_t prv_subsystems_init(void)
         ESP_LOGI(TAG, "[OK] UART communication initialized");
     }
 
-    /* ---- 100ms Timer (用于驱动声学前端流水线) ---- */
-    /* TODO: 创建 100ms 定时器 → 从环形缓冲区取 10ms*10 帧 → MFCC → feature_buffer */
-
     return ESP_OK;
 }

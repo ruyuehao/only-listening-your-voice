@@ -103,7 +103,23 @@ esp32c3-voice-wake/
 
 ---
 
-## 待完成
+## 审计修复记录 (2026-06-25)
+
+| 严重度 | 编号 | 问题 | 状态 |
+|--------|------|------|------|
+| 🔴 CRITICAL | C1 | sdkconfig ESP32S3→ESP32C3 CPU freq key | ✅ |
+| 🔴 CRITICAL | C2 | 定时器回调阻塞 200ms | ✅ 改为独立Task |
+| 🔴 CRITICAL | C3 | 定时器回调栈溢出 5.9KB | ✅ 改为独立Task(6KB) |
+| 🔴 CRITICAL | C4 | SV resolver static 重复注册 | ✅ 移除static |
+| 🔴 CRITICAL | C5 | 模型加载整分区(1MB) → OOM | ✅ FAT+fopen 按文件名读 |
+| 🟠 HIGH | H1 | 任务栈 4 倍于 PRD (96KB) | ✅ 降至44KB |
+| 🟠 HIGH | H2 | KWS 模型内存泄漏 20KB | ✅ 保存+释放 |
+| 🟠 HIGH | H3 | SV 结果未接入(永远ACCEPTED) | ✅ g_sv_similarity |
+| 🟠 HIGH | H4 | EVENT_TIMER_100MS 从未设置 | ✅ KWS改为轮询 |
+| 🟡 MEDIUM | M1 | 无KWS触发冷却 | ✅ 2s冷却 |
+| 🟡 MEDIUM | M2 | 按键死循环风险 | ✅ 10s超时 |
+| 🟡 MEDIUM | M3 | 缺少 esp_timer.h | ✅ 补全 |
+| 🟡 MEDIUM | M4 | EventGroup 参数错误 | ✅ TRUE→FALSE |
 
 | 项目 | 说明 |
 |------|------|

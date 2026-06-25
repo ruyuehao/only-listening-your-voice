@@ -10,7 +10,6 @@
 #include <string.h>
 #include <math.h>
 #include "esp_log.h"
-#include "esp_partition.h"
 #include "nvs_flash.h"
 #include "nvs.h"
 
@@ -19,6 +18,7 @@
 #include "tensorflow/lite/schema/schema_generated.h"
 
 #include "sys_config.h"
+#include "model_loader.h"
 #include "sv_engine.h"
 
 static const char *TAG = "SV_ENG";
@@ -48,28 +48,11 @@ static sv_session_t *sv_session_create(void)
         return NULL;
     }
 
-    /* 从 Flash 加载模型 */
-    const esp_partition_t *part = esp_partition_find_first(
-        ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_FAT, "models");
-    if (part == NULL) {
-        ESP_LOGE(TAG, "Models partition not found");
-        free(s->arena);
-        free(s);
-        return NULL;
-    }
-
-    s->model_data = (uint8_t *)heap_caps_malloc(part->size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    /* 从 FAT 分区按文件名加载 SV 模型 */
+    size_t model_size = 0;
+    s->model_data = model_loader_read("model_sv.tflite", &model_size);
     if (s->model_data == NULL) {
-        ESP_LOGE(TAG, "Failed to alloc model buffer (%d bytes)", part->size);
-        free(s->arena);
-        free(s);
-        return NULL;
-    }
-
-    esp_err_t ret = esp_partition_read(part, 0, s->model_data, part->size);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to read partition");
-        free(s->model_data);
+        ESP_LOGE(TAG, "Failed to load model_sv.tflite from FAT partition");
         free(s->arena);
         free(s);
         return NULL;
@@ -84,8 +67,8 @@ static sv_session_t *sv_session_create(void)
         return NULL;
     }
 
-    /* OpResolver — 最小集 */
-    static tflite::MicroMutableOpResolver<8> resolver;
+    /* OpResolver — 每次 session 重新创建 */
+    tflite::MicroMutableOpResolver<8> resolver;
     resolver.AddConv2D();
     resolver.AddDepthwiseConv2D();
     resolver.AddFullyConnected();

@@ -20,6 +20,9 @@ static const char *TAG = "TASK_SV";
 
 extern EventGroupHandle_t g_event_group;
 
+/* 全局变量: SV 结果（SV 任务写入，Decision 任务读取） */
+float g_sv_similarity = 0.0f;
+
 static TaskHandle_t s_task_handle = NULL;
 
 /* GPIO 打桩 */
@@ -93,6 +96,9 @@ static void task_sv_main(void *pv_params)
         ESP_LOGI(TAG, "SV: sim=%.4f (thresh=%.2f) | latency=%dus | stack=%d",
                  similarity, SV_THRESHOLD, latency_us,
                  uxTaskGetStackHighWaterMark(NULL));
+
+        /* 写入全局结果供 Decision 任务读取 */
+        g_sv_similarity = similarity;
 
         if (similarity >= SV_THRESHOLD) {
             ESP_LOGI(TAG, "*** VOICEPRINT MATCH ***");

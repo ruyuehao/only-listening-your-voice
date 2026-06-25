@@ -21,6 +21,7 @@
 static const char *TAG = "TASK_DECISION";
 
 extern EventGroupHandle_t g_event_group;
+extern float g_sv_similarity;     /* SV 任务写入的相似度 */
 
 static TaskHandle_t s_task_handle = NULL;
 static int64_t      s_state_enter_us = 0;  /* 进入当前状态的时间 */
@@ -93,10 +94,21 @@ static void task_decision_main(void *pv_params)
             );
 
             if (bits & EVENT_SV_DONE) {
-                /* TODO Phase 6: 读取 SV 相似度 → ACCEPTED/REJECTED */
-                /* 占位: 暂时直接 ACCEPTED */
-                ESP_LOGI(TAG, "SV done — ACCEPTED (placeholder)");
-                fsm_transition(STATE_ACCEPTED);
+                float sim = g_sv_similarity;
+
+                if (sim < -1.0f) {
+                    /* 模型加载失败或推理错误 → 拒绝 */
+                    ESP_LOGW(TAG, "SV failed (sim=%.2f) — REJECTED", sim);
+                    fsm_transition(STATE_REJECTED);
+                } else if (sim >= SV_THRESHOLD) {
+                    ESP_LOGI(TAG, "SV match (sim=%.4f >= %.2f) — ACCEPTED",
+                             sim, SV_THRESHOLD);
+                    fsm_transition(STATE_ACCEPTED);
+                } else {
+                    ESP_LOGI(TAG, "SV mismatch (sim=%.4f < %.2f) — REJECTED",
+                             sim, SV_THRESHOLD);
+                    fsm_transition(STATE_REJECTED);
+                }
                 s_state_enter_us = esp_timer_get_time();
             }
             continue;
