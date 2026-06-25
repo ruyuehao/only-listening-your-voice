@@ -1,13 +1,15 @@
 /*
  * sv_engine.h — 声纹验证引擎 (Speaker Verification)
  *
- * 动态加载 INT8 TFLite 模型，提取 16 维声纹 Embedding，
- * 与 NVS 注册模板做余弦相似度比对。
+ * 模型架构: x-vector mini (TDNN×3 + Stats Pooling + FC×2)
+ *   输入: [1, 40, 40] INT8 spectrogram (40 帧 × 40 维, 共用 KWS frontend)
+ *   TDNN: Conv2D(24,5×1) → Conv2D(32,3×1) → Conv2D(48,3×1)
+ *   Stats Pooling: Concat(mean_T, std_T) → 96-d
+ *   FC: 96 → 48 → 16 (L2-Norm)
+ *   参数: ~12.5K → 模型 ≤15KB Flash INT8
+ *   输出: 16 维 L2-normalized Embedding
  *
- * 模型规格:
- *   输入: [1, 40, 40] INT8 spectrogram (40 帧 × 40 维)
- *   输出: 16 维 Embedding (INT8 → float)
- *   大小: ≤ 15KB Flash
+ * 训练: Triplet Loss + Center Loss, 30-50人 × ≥20次唤醒词录音
  *
  * 内存策略: 加载 → 推理 → 立即卸载（峰值仅 tensor_arena 48KB）
  */

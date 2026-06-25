@@ -4,30 +4,57 @@
 
 **本项目核心创新模块** — GitHub 无 ESP32 平台 SV 开源实现，自行攻关。
 
-动态加载/卸载 TFLite 模型，提取 16 维声纹 Embedding，与 NVS 注册模板做余弦相似度比对。
+采用 **x-vector mini** 架构（TDNN + Stats Pooling），动态加载/卸载 TFLite 模型，
+提取 16 维 L2-normalized Embedding，与 NVS 注册模板做余弦相似度比对。
 
-## 架构
+## 模型架构 (x-vector mini)
 
 ```
-KWS Trigger → Task_SV:
-  1. 动态加载 model_sv.tflite (≤15KB)
-  2. feature_buffer → 40 帧 spectrogram
-  3. TFLite INT8 推理 → 16-dim Embedding
-  4. NVS 读取注册模板 (64 bytes)
-  5. 余弦相似度 → 比对 → ACCEPTED / REJECTED
-  6. 卸载模型释放 RAM
+输入: [1, 40, 40] INT8 spectrogram (共用 KWS frontend)
+    │
+    ├─ TDNN1: Conv2D(24, 5×1) + ReLU        → (36, 40, 24)   param:   144
+    ├─ TDNN2: Conv2D(32, 3×1) + ReLU        → (34, 40, 32)   param:  2336
+    ├─ TDNN3: Conv2D(48, 3×1) + ReLU        → (32, 40, 48)   param:  4656
+    │
+    ├─ Stats Pooling (沿时间轴):
+    │    Mean(T) + Std(T) → Concat          → (96)           param:     0
+    │
+    ├─ FC1 (96 → 48) + ReLU                 → (48)           param:  4656
+    ├─ FC2 (48 → 16) + L2-Norm              → (16)           param:   784
+    │
+输出: [16] float L2-normalized Embedding
+─────────────────────────────────────────────────
+参数总计: ~12,576 → INT8 模型 ≤15KB Flash
 ```
 
-## 模型规格
+### 为什么选 x-vector
 
-| 参数 | 值 |
-|------|-----|
-| 输入 | [1, 40, 40] INT8 spectrogram |
-| 输出 | 16 维 Embedding |
-| Flash 占用 | ≤ 15KB |
-| Tensor Arena | 48KB (动态分配/释放) |
-| 推理延迟 | ≤ 150ms |
-| 阈值 | 余弦相似度 ≥ 0.70 |
+| 对比 | 3 Conv + GAP | x-vector mini |
+|------|-------------|---------------|
+| 时序建模 | GAP 丢弃时间结构 | Stats Pooling 保留均值+方差 |
+| 动态特征 | 无 | 标准差捕获说话节奏/语调 |
+| 参数 | ~9K | ~12.5K (仍在15KB内) |
+| 同唤醒词区分力 | 较弱 | 更强（大家都说同一句，区分靠怎么说） |
+
+### Stats Pooling 实现
+
+```
+Mean(T)  = ReduceMean(features, axis=time)     # 静态声道特征
+Std(T)   = Sqrt(ReduceMean((f - Mean)², axis=time))  # 动态韵律特征
+Output   = Concat(Mean, Std)                    # 96维段级向量
+```
+
+在 TFLite 中用 5 个内置算子: `MEAN` + `SUB` + `SQUARE` + `SQRT` + `CONCATENATION`
+
+## 训练策略
+
+| 组件 | 说明 |
+|------|------|
+| Loss | **Triplet Loss** (margin=0.3) + **Center Loss** (λ=0.1) |
+| 正样本 | 同人不同录音 (Anchor↔Positive) |
+| 负样本 | 不同人录音 (Anchor↔Negative) |
+| 数据 | 30-50 人 × 每人 ≥20 次同一唤醒词 |
+| 量化 | INT8 full-integer quantization
 
 ## 余弦相似度
 

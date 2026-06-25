@@ -94,7 +94,8 @@
 | 组件 | 技术栈 | 详情 |
 |------|--------|------|
 | 推理框架 | **TensorFlow Lite Micro** (动态加载) | 每次验证独立创建 / 销毁 `MicroInterpreter`, 不占用常驻 RAM |
-| 模型架构 | 自定义 CNN → 16 维 Embedding | ≤15KB Flash, 输入 40 帧 × 40 维 |
+| 模型架构 | **x-vector mini** (TDNN×3 + Stats Pooling + FC×2) | ≤15KB Flash, 输入 40帧×40维 (共用KWS frontend), ~12.5K参数 |
+| Stats Pooling | TFLite 内置算子 (`MEAN` + `SUB` + `SQUARE` + `SQRT` + `CONCAT`) | 沿时间轴计算均值+标准差, 拼接为96维段级特征 |
 | 内存策略 | **Heap Allocation** (`heap_caps_aligned_alloc`) | 48KB tensor arena + 模型 buffer 动态分配, 推理后立即 `free` |
 | 声纹比对 | **余弦相似度** (`A·B / ‖A‖·‖B‖`) | 16 维 float32 向量比对, 阈值 0.70 |
 | 模板存储 | ESP-IDF **NVS** (`nvs_set_blob` / `nvs_get_blob`) | 64 字节 (16 × float32), namespace `sv_enroll`, key `sv_template` |
