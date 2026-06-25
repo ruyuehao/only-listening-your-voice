@@ -41,14 +41,16 @@
 1. ESP32 → 模组: JSON + "\r\n"
 2. 模组 → ESP32: "OK\r\n" (超时 500ms)
 3. 超时 → 重试 1 次
+4. 错误恢复: `uart_driver_delete()` 清理资源
 
 ## API
 
 | 函数 | 说明 |
 |------|------|
-| `event_reporter_init()` | 初始化 UART |
+| `event_reporter_init()` | 初始化 UART + 错误清理 |
 | `event_reporter_send_wake(conf, sim)` | 发送唤醒事件 + 等待 ACK |
 
 ## 依赖
 
 - ESP-IDF UART Driver
+- FreeRTOS

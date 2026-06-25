@@ -3,7 +3,7 @@
 ## 概述
 
 驱动 **INMP441 MEMS 麦克风** 通过 I2S 接口采集 16kHz/16bit 单声道 PCM 音频，
-写入线程安全环形缓冲区，事件驱动通知下游 KWS 任务。
+写入线程安全环形缓冲区。
 
 ## 硬件连接
 
@@ -19,23 +19,24 @@
 ## 架构
 
 ```
-INMP441 → I2S (DMA) → task_audio_capture → RingBuffer (32KB)
-                                │
-                    每 100ms → EVENT_AUDIO_READY
-                                │
-                          Task_KWS (事件驱动)
+INMP441 → I2S (DMA) → Task_AudioCapture (prio=5)
+                         │
+                    ├─ i2s_channel_read (100ms 超时)
+                    └─ RingBuffer (32KB, FreeRTOS BYTEBUF)
+                         │
+                    Task_Frontend 消费
 ```
 
 ## 关键参数
 
 | 参数 | 值 | 说明 |
 |------|-----|------|
-| 采样率 | 16000 Hz | 16kHz |
-| 位深 | 16-bit | I2S 标准格式 (Philips) |
+| 采样率 | 16000 Hz | |
+| 位深 | 16-bit | I2S Philips 标准 |
 | 声道 | 单声道 (左) | L/R 接地 |
-| 环形缓冲区 | 32KB | 容纳 1s 音频 |
-| DMA 缓冲 | 1024 采样 | 每帧 ~64ms |
-| 通知间隔 | 100ms | EVENT_AUDIO_READY 事件 |
+| 环形缓冲区 | 32KB | 1s 音频 |
+| DMA 帧 | 1024 采样 | ~64ms |
+| I2S 超时 | 100ms | HW 故障不挂死 |
 
 ## 依赖
 
@@ -47,6 +48,6 @@ INMP441 → I2S (DMA) → task_audio_capture → RingBuffer (32KB)
 | 函数 | 说明 |
 |------|------|
 | `audio_capture_init()` | 初始化 I2S + 环形缓冲区 + 启动采集任务 |
-| `audio_ringbuf_read(dst, size)` | 线程安全读取最近 N 字节 |
+| `audio_ringbuf_read(dst, size)` | 线程安全读取, 200ms 超时 |
 | `audio_ringbuf_available()` | 可读字节数 |
 | `audio_ringbuf_watermark()` | 缓冲区水位 (0-100%) |

@@ -11,7 +11,8 @@
 │ AI 推理层                                                │
 │  TensorFlow Lite Micro (esp-tflite-micro)               │
 │   ├─ ESP-NN 内核加速 (Conv2D/DWConv/FC ~8× speedup)    │
-│   ├─ MicroMutableOpResolver (12+ ops)                  │
+│   ├─ KWS: MicroMutableOpResolver<12>                    │
+│   ├─ SV:  MicroMutableOpResolver<14> (含Stats Pooling)  │
 │   └─ 模型格式: FlatBuffers INT8 (.tflite)               │
 ├─────────────────────────────────────────────────────────┤
 │ 信号处理层                                               │
@@ -63,7 +64,7 @@
 |------|--------|------|
 | FFT 加速 | **ESP-DSP** (`dsps_fft2r_fc32`) | 512 点实数 FFT, ESP32-C3 RISC-V 汇编优化 |
 | 窗函数 | 自实现 **Hann Window** | 480 采样点 (30ms @ 16kHz) |
-| Mel 滤波器组 | 自实现三角滤波器 | 40 通道, 125–7500 Hz, `hz_to_mel` / `mel_to_hz` 转换 |
+| Mel 滤波器组 | 自实现三角滤波器 (预计算 Flash 常量) | 40 通道, 125–7500 Hz, 10KB `const uint8_t` Flash, `mel_filterbank_const.h` |
 | PCAN 降噪 | 自实现 **Per-Channel AGC + Noise Suppression** | α = 0.01 指数平滑噪声估计, 增益归一化 |
 | 特征输出 | uint8 [0,255] spectrogram | 40 维 / 帧 @ 10ms 帧步 |
 | 滑动窗口缓冲 | FreeRTOS **Mutex** + 环形数组 | 150 帧 (1.5s) 环形缓冲, 线程安全读写 |
@@ -159,12 +160,14 @@
 | 区域 | 大小 | 类型 |
 |------|------|------|
 | KWS Tensor Arena (常驻) | 64KB | BSS |
-| Mel Filterbank | 41KB | BSS (TODO: → Flash) |
+| Mel Filterbank | 10KB | Flash (预计算 `mel_filterbank_const.h`) |
 | Feature Buffer | 6KB | BSS |
 | Hann Window | 2KB | BSS |
 | PCM Window | 1KB | BSS |
-| 环形缓冲区 | 32KB | Heap (FreRTOS RingBuf) |
+| 环形缓冲区 | 32KB | Heap (FreeRTOS RingBuf) |
 | KWS 模型数据 | ~20KB | Heap |
 | SV Session (峰值) | ~63KB | Heap (48KB arena + 15KB model) |
 | 任务栈 × 6 | ~44KB | Heap (FreeRTOS TCBs) |
-| **峰值总计** | **~273KB** | 384KB 总量, 余量 ~111KB |
+| **BSS 总计** | **~73KB** | 系统保留 ~50KB, 净空闲 ~261KB |
+| **峰值 Heap** | **~159KB** | |
+| **峰值总计** | **~232KB** | 384KB 总量, 余量 ~152KB (40%) |
