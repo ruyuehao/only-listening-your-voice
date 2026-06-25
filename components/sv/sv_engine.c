@@ -67,16 +67,25 @@ static sv_session_t *sv_session_create(void)
         return NULL;
     }
 
-    /* OpResolver — 每次 session 重新创建 */
-    tflite::MicroMutableOpResolver<8> resolver;
+    /* OpResolver — x-vector mini:
+     * TDNN: Conv2D + DWConv + FC
+     * Stats Pooling: MEAN + SUB + SQUARE + SQRT + CONCATENATION
+     * Output: L2_NORMALIZATION
+     * 全算子 TFLite Micro 原生支持 */
+    tflite::MicroMutableOpResolver<14> resolver;
     resolver.AddConv2D();
     resolver.AddDepthwiseConv2D();
     resolver.AddFullyConnected();
     resolver.AddReshape();
-    resolver.AddAveragePool2D();
     resolver.AddRelu();
     resolver.AddQuantize();
     resolver.AddDequantize();
+    resolver.AddMean();             /* ReduceMean: Stats Pooling */
+    resolver.AddSub();              /* centered = x - mean */
+    resolver.AddSquare();           /* centered² */
+    resolver.AddSqrt();             /* std = sqrt(variance) */
+    resolver.AddConcatenation();    /* concat(mean, std) */
+    resolver.AddL2Normalization();  /* output normalization */
 
     /* 创建解释器 */
     s->interpreter = new tflite::MicroInterpreter(

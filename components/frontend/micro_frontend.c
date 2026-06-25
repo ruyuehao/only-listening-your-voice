@@ -10,6 +10,7 @@
 #include "esp_log.h"
 #include "esp_dsp.h"
 #include "micro_frontend.h"
+#include "mel_filterbank_const.h"
 
 static const char *TAG = "MFE";
 
@@ -18,39 +19,11 @@ static const char *TAG = "MFE";
 /* Hann 窗口: w[n] = 0.5 * (1 - cos(2πn / (N-1))), N=480 */
 static float s_hann_window[MF_WINDOW_SAMPLES];
 
-/* Mel 滤波器组: [40][257] float = 41KB BSS
- * TODO: 预计算为 const 头文件放入 Flash 可节省 41KB RAM
- */
-static float s_mel_filterbank[MF_NUM_CHANNELS][MF_FFT_SIZE / 2 + 1];
-
 /* 标记是否已完成全局初始化 */
 static bool s_initialized = false;
 
 /* ================================================================
- * Mel 频率转换
- * ================================================================ */
-
-static float hz_to_mel(float hz)
-{
-    return 2595.0f * log10f(1.0f + hz / 700.0f);
-}
-
-static float mel_to_hz(float mel)
-{
-    return 700.0f * (powf(10.0f, mel / 2595.0f) - 1.0f);
-}
-
-/* ================================================================
- * FFT bin → 频率
- * ================================================================ */
-
-static float bin_to_freq(int bin)
-{
-    return (float)bin * MF_SAMPLE_RATE / (float)MF_FFT_SIZE;
-}
-
-/* ================================================================
- * 初始化：Hann 窗口 + Mel 滤波器组
+ * 初始化：Hann 窗口 + ESP-DSP
  * ================================================================ */
 
 static void compute_hann_window(void)
@@ -60,58 +33,6 @@ static void compute_hann_window(void)
         s_hann_window[i] = 0.5f * (1.0f - cosf(2.0f * M_PI * i / (float)(n - 1)));
     }
     ESP_LOGI(TAG, "Hann window computed: %d samples", n);
-}
-
-static void compute_mel_filterbank(void)
-{
-    int num_bins = MF_FFT_SIZE / 2 + 1;  /* 257 个正频率 bin */
-
-    float mel_low  = hz_to_mel(MF_LOWER_BAND_HZ);
-    float mel_high = hz_to_mel(MF_UPPER_BAND_HZ);
-
-    /* 在 Mel 域均匀采样 MF_NUM_CHANNELS + 2 个点 */
-    int num_mel_pts = MF_NUM_CHANNELS + 2;
-    float mel_step = (mel_high - mel_low) / (float)(MF_NUM_CHANNELS + 1);
-
-    float *mel_pts = (float *)calloc(num_mel_pts, sizeof(float));
-    float *hz_pts  = (float *)calloc(num_mel_pts, sizeof(float));
-    int   *bin_pts = (int *)  calloc(num_mel_pts, sizeof(int));
-
-    for (int i = 0; i < num_mel_pts; i++) {
-        mel_pts[i] = mel_low + mel_step * i;
-        hz_pts[i]  = mel_to_hz(mel_pts[i]);
-        bin_pts[i] = (int)(hz_pts[i] * MF_FFT_SIZE / (float)MF_SAMPLE_RATE);
-    }
-
-    /* 清零滤波器组 */
-    memset(s_mel_filterbank, 0, sizeof(s_mel_filterbank));
-
-    /* 对每个 Mel 通道建立三角滤波器 */
-    for (int ch = 0; ch < MF_NUM_CHANNELS; ch++) {
-        int left  = bin_pts[ch];
-        int peak  = bin_pts[ch + 1];
-        int right = bin_pts[ch + 2];
-
-        /* 左斜坡: left → peak */
-        for (int bin = left; bin <= peak; bin++) {
-            if (peak > left) {
-                s_mel_filterbank[ch][bin] = (float)(bin - left) / (float)(peak - left);
-            }
-        }
-        /* 右斜坡: peak → right */
-        for (int bin = peak; bin <= right; bin++) {
-            if (right > peak) {
-                s_mel_filterbank[ch][bin] = (float)(right - bin) / (float)(right - peak);
-            }
-        }
-    }
-
-    free(mel_pts);
-    free(hz_pts);
-    free(bin_pts);
-
-    ESP_LOGI(TAG, "Mel filterbank computed: %d channels, %d bins, %.0f-%.0f Hz",
-             MF_NUM_CHANNELS, num_bins, MF_LOWER_BAND_HZ, MF_UPPER_BAND_HZ);
 }
 
 /* ================================================================
@@ -130,9 +51,9 @@ static void ensure_initialized(void)
     }
 
     compute_hann_window();
-    compute_mel_filterbank();
     s_initialized = true;
-    ESP_LOGI(TAG, "Microfrontend initialized OK");
+    ESP_LOGI(TAG, "Microfrontend initialized (Mel filterbank: %d bytes Flash)",
+             MEL_FB_CHANNELS * MEL_FB_BINS);
 }
 
 /* ================================================================
@@ -233,14 +154,14 @@ esp_err_t mf_process_frame(micro_frontend_handle_t *handle,
     }
 
     /* ================================================================
-     * Step 2: Mel 滤波器组 → 每通道能量
+     * Step 2: Mel 滤波器组 → 每通道能量 (Flash 查表)
      * ================================================================ */
 
     float channel_energy[MF_NUM_CHANNELS];
     for (int ch = 0; ch < MF_NUM_CHANNELS; ch++) {
         float energy = 0.0f;
         for (int bin = 0; bin <= MF_FFT_SIZE / 2; bin++) {
-            energy += power_spec[bin] * s_mel_filterbank[ch][bin];
+            energy += power_spec[bin] * mel_filterbank_get(ch, bin);
         }
         /* 数值稳定性：避免 log(0) */
         if (energy < 1e-10f) energy = 1e-10f;
