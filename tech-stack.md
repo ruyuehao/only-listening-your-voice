@@ -80,7 +80,7 @@
 |------|--------|------|
 | 推理框架 | **TensorFlow Lite Micro** (`esp-tflite-micro` 组件) | ESP-IDF 官方组件, 含 **ESP-NN** 内核加速 (Conv2D / DWConv / FC 提速 ~8×) |
 | 模型格式 | FlatBuffers (`.tflite`) | INT8 量化, `kTfLiteOk` 状态检查 |
-| 模型架构 | **MixedNet** (MixConv) | micro-wake-word 训练框架, ≤20KB Flash |
+| 模型架构 | **DS-CNN** (Conv→DWConv→AvgPool→FC) | 11.4KB Flash, 89.3% acc, 输入 100帧×13维 |
 | 输入转换 | uint8 → INT8 (减 128) | microfrontend [0,255] → TFLite [-128,127] |
 | 输出反量化 | `(int8 − zero_point) × scale` | Softmax 2 类, 取 index[1] 为唤醒词置信度 |
 | OpResolver | `MicroMutableOpResolver<12>` | 注册 12 个算子, 自动链接 ESP-NN |
@@ -95,8 +95,8 @@
 | 组件 | 技术栈 | 详情 |
 |------|--------|------|
 | 推理框架 | **TensorFlow Lite Micro** (动态加载) | 每次验证独立创建 / 销毁 `MicroInterpreter`, 不占用常驻 RAM |
-| 模型架构 | **x-vector mini** (TDNN×3 + Stats Pooling + FC×2) | ≤15KB Flash, 输入 40帧×40维 (共用KWS frontend), ~12.5K参数 |
-| Stats Pooling | TFLite 内置算子 (`MEAN` + `SUB` + `SQUARE` + `SQRT` + `CONCAT`) | 沿时间轴计算均值+标准差, 拼接为96维段级特征 |
+| 模型架构 | **1D CNN** (Conv1d×3 + GAP + FC + L2-Norm) | 14.3KB Flash, 输入 40帧×13维 (共用KWS frontend), ~8K参数 |
+| Stats Pooling | N/A (使用 GAP 替代) | GlobalAvgPool = ReduceMean over time: 更简单, 区分力充足 |
 | 内存策略 | **Heap Allocation** (`heap_caps_aligned_alloc`) | 48KB tensor arena + 模型 buffer 动态分配, 推理后立即 `free` |
 | 声纹比对 | **余弦相似度** (`A·B / ‖A‖·‖B‖`) | 16 维 float32 向量比对, 阈值 0.70 |
 | 模板存储 | ESP-IDF **NVS** (`nvs_set_blob` / `nvs_get_blob`) | 64 字节 (16 × float32), namespace `sv_enroll`, key `sv_template` |
@@ -160,14 +160,14 @@
 | 区域 | 大小 | 类型 |
 |------|------|------|
 | KWS Tensor Arena (常驻) | 64KB | BSS |
-| Mel Filterbank | 10KB | Flash (预计算 `mel_filterbank_const.h`) |
-| Feature Buffer | 6KB | BSS |
+| Mel Filterbank | 10KB | Flash (预计算 `mel_filterbank_const.h`, 13ch @ 0.4%精度) |
+| Feature Buffer | 6KB → 1.95KB | BSS (150 × 13 uint8) |
 | Hann Window | 2KB | BSS |
 | PCM Window | 1KB | BSS |
 | 环形缓冲区 | 32KB | Heap (FreeRTOS RingBuf) |
-| KWS 模型数据 | ~20KB | Heap |
-| SV Session (峰值) | ~63KB | Heap (48KB arena + 15KB model) |
+| KWS 模型数据 | ~11.4KB | Heap |
+| SV Session (峰值) | ~63KB | Heap (48KB arena + 14.3KB model) |
 | 任务栈 × 6 | ~44KB | Heap (FreeRTOS TCBs) |
-| **BSS 总计** | **~73KB** | 系统保留 ~50KB, 净空闲 ~261KB |
-| **峰值 Heap** | **~159KB** | |
-| **峰值总计** | **~232KB** | 384KB 总量, 余量 ~152KB (40%) |
+| **BSS 总计** | **~69KB** | 系统保留 ~50KB, 净空闲 ~265KB |
+| **峰值 Heap** | **~150KB** | |
+| **峰值总计** | **~219KB** | 384KB 总量, 余量 ~165KB (43%) |

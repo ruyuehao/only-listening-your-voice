@@ -67,25 +67,20 @@ static sv_session_t *sv_session_create(void)
         return NULL;
     }
 
-    /* OpResolver — x-vector mini:
-     * TDNN: Conv2D + DWConv + FC
-     * Stats Pooling: MEAN + SUB + SQUARE + SQRT + CONCATENATION
-     * Output: L2_NORMALIZATION
+    /* OpResolver — 1D CNN:
+     * Conv1d (实现为 Conv2D k×1) + BN + ReLU + GAP(Mean) + FC + L2_Norm
      * 全算子 TFLite Micro 原生支持 */
-    tflite::MicroMutableOpResolver<14> resolver;
-    resolver.AddConv2D();
-    resolver.AddDepthwiseConv2D();
-    resolver.AddFullyConnected();
+    tflite::MicroMutableOpResolver<10> resolver;
+    resolver.AddConv2D();           /* Conv1d → Conv2D(k,1) */
+    resolver.AddFullyConnected();   /* FC(24→16) */
     resolver.AddReshape();
     resolver.AddRelu();
+    resolver.AddMean();             /* GlobalAveragePool */
     resolver.AddQuantize();
     resolver.AddDequantize();
-    resolver.AddMean();             /* ReduceMean: Stats Pooling */
-    resolver.AddSub();              /* centered = x - mean */
-    resolver.AddSquare();           /* centered² */
-    resolver.AddSqrt();             /* std = sqrt(variance) */
-    resolver.AddConcatenation();    /* concat(mean, std) */
-    resolver.AddL2Normalization();  /* output normalization */
+    resolver.AddMul();              /* BN scale (可能已 baked into weights) */
+    resolver.AddL2Normalization();  /* output L2 norm */
+    resolver.AddSoftmax();          /* (备用, 训练时可能留有) */
 
     /* 创建解释器 */
     s->interpreter = new tflite::MicroInterpreter(

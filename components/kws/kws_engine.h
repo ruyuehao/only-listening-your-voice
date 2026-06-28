@@ -1,12 +1,14 @@
 /*
  * kws_engine.h — 唤醒词检测引擎 (TFLite Micro)
  *
- * 加载 INT8 TFLite 模型，运行流式推理，输出唤醒词置信度。
+ * 模型架构: DS-CNN (Depthwise Separable CNN)
+ *   Conv2D(1→8, kernel=10×4, stride=2) → ReLU
+ *   → DepthwiseConv2D(8, kernel=3×3) → ReLU
+ *   → AvgPool2D(2×2) → Flatten → FC(176→32) → ReLU → FC(32→2)
  *
- * 模型规格:
- *   输入: [1, 100, 40] INT8 spectrogram (100 帧 × 40 维)
- *   输出: Softmax [2] — [非唤醒词, 唤醒词]
- *   大小: ≤ 20KB Flash
+ *   输入: [1, 100, 13] INT8 spectrogram (100 帧 × 13 维 MFCC)
+ *   输出: Softmax 2 类 (非唤醒词 / 唤醒词)
+ *   大小: ≤ 12KB INT8 Flash
  */
 
 #pragma once
@@ -20,7 +22,7 @@ extern "C" {
 
 /* ---- 模型维度 ---- */
 #define KWS_INPUT_FRAMES  100       /* 输入帧数 (1.0s @ 10ms) */
-#define KWS_FEATURE_DIM   40        /* 每帧特征维度 */
+#define KWS_FEATURE_DIM   13        /* 每帧特征维度 (13维 MFCC) */
 #define KWS_NUM_CLASSES   2         /* 输出类别数 */
 
 /* ---- API ---- */

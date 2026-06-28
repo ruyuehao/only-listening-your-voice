@@ -1,15 +1,17 @@
 /*
- * sv_engine.h — 声纹验证引擎 (Speaker Verification)
+ * sv_engine.h — 声纹验证引擎 (1D CNN Speaker Embedding)
  *
- * 模型架构: x-vector mini (TDNN×3 + Stats Pooling + FC×2)
- *   输入: [1, 40, 40] INT8 spectrogram (40 帧 × 40 维, 共用 KWS frontend)
- *   TDNN: Conv2D(24,5×1) → Conv2D(32,3×1) → Conv2D(48,3×1)
- *   Stats Pooling: Concat(mean_T, std_T) → 96-d
- *   FC: 96 → 48 → 16 (L2-Norm)
- *   参数: ~12.5K → 模型 ≤15KB Flash INT8
- *   输出: 16 维 L2-normalized Embedding
+ * 模型架构: 1D CNN (Conv1d×3 + GAP + FC + L2-Norm)
+ *   Conv1d(13→32, k5, s2) → BN → ReLU
+ *   → Conv1d(32→32, k3, s2) → BN → ReLU
+ *   → Conv1d(32→24, k3, s1) → BN → ReLU
+ *   → GlobalAvgPool → FC(24→16) → L2-Norm
  *
- * 训练: Triplet Loss + Center Loss, 30-50人 × ≥20次唤醒词录音
+ *   输入: [1, 40, 13] INT8 spectrogram (40 帧 × 13 维 MFCC, 共用 KWS frontend)
+ *   输出: 16 维 L2-Normalized Embedding
+ *   大小: ≤ 15KB Flash INT8 (实际 14.3KB)
+ *
+ * 训练: GE2E Loss (Generalized End-to-End), 30人 × ≥40次唤醒词录音
  *
  * 内存策略: 加载 → 推理 → 立即卸载（峰值仅 tensor_arena 48KB）
  */
@@ -25,7 +27,7 @@ extern "C" {
 
 /* ---- 模型维度 ---- */
 #define SV_INPUT_FRAMES   40       /* 输入帧数 (0.4s @ 10ms) */
-#define SV_FEATURE_DIM    40       /* 每帧特征维度 */
+#define SV_FEATURE_DIM    13       /* 每帧特征维度 (13维 MFCC, 与 KWS 共享 frontend) */
 #define SV_EMBEDDING_DIM  16       /* 输出 Embedding 维度 */
 
 /* ---- API ---- */

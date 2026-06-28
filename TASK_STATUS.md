@@ -150,18 +150,27 @@ esp32c3-voice-wake/
 
 | 日期 | 优化 | 收益 |
 |------|------|------|
-| 2026-06-25 | Mel filterbank 预计算 Flash 常量 | 释放 41KB SRAM, 峰值 336→295KB |
-| 2026-06-25 | TFLite SQRT 验证 + SV resolver 14 ops | Stats Pooling 全原生支持 |
-| 2026-06-25 | SV 架构: x-vector mini (TDNN×3+StatsPool+FC×2) | ~12.5K参数, 15KB INT8 |
+| 2026-06-25 | Mel filterbank 预计算 Flash 常量 | 释放 41KB SRAM |
+| 2026-06-25 | TFLite SQRT 验证 + SV resolver | Stats Pooling 全原生支持 |
+| 2026-06-28 | 13维 MFCC 对齐 (固件→模型) | Feature buf 1.95KB, KWS 11.4KB, SV 14.3KB |
+| 2026-06-28 | 架构对齐: KWS DS-CNN, SV 1D CNN | 参数量 ~2K(SV), 模型峰值 219KB (余量 43%) |
 
 ---
+
+## 模型状态
+
+| 模型 | 架构 | INT8 大小 | 准确率 | 状态 |
+|------|------|----------|--------|------|
+| KWS | DS-CNN (Conv+DWConv+FC) | 11.4 KB ONNX | 89.29% | 待 ONNX→TFLite |
+| SV | 1D CNN (Conv1d×3+GAP+FC) | 14.3 KB ONNX | — | 待 ONNX→TFLite |
+
+转换脚本: `tools/convert_kws.py` / `tools/convert_sv.py` (在 GPU 服务器运行)
 
 ## 待完成
 
 | 项目 | 说明 |
 |------|------|
-| KWS 模型 | `model_kws.tflite` — micro-wake-word MixedNet 训练 |
-| SV 模型 | `model_sv.tflite` — x-vector mini 自定义训练 |
-| 模型烧录 | .tflite → models FAT 分区 |
+| ONNX→TFLite 转换 | 在 GPU 服务器运行 convert_kws.py / convert_sv.py |
+| 模型烧录 | .tflite → models_fat/ → FAT 镜像 → Flash |
 | 硬件测试 | GPIO 打桩 / 准确率 / 1h 压力测试 |
 | SDK 配置 | `idf.py set-target esp32c3` 生成完整 sdkconfig |

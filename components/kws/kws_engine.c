@@ -1,5 +1,5 @@
 /*
- * kws_engine.c — KWS TFLite Micro 推理实现
+ * kws_engine.c — KWS TFLite Micro 推理实现 (DS-CNN)
  *
  * 使用 esp-tflite-micro 组件 + ESP-NN 加速
  * 模型从 FAT 分区按文件名加载
