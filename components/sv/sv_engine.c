@@ -9,7 +9,9 @@
 
 #include <string.h>
 #include <math.h>
+#include <stdlib.h>
 #include "esp_log.h"
+#include "esp_heap_caps.h"
 #include "nvs_flash.h"
 #include "nvs.h"
 
@@ -28,10 +30,11 @@ static const char *TAG = "SV_ENG";
  * ================================================================ */
 
 typedef struct {
-    const tflite::Model       *model;
-    tflite::MicroInterpreter  *interpreter;
-    uint8_t                   *arena;
-    uint8_t                   *model_data;  /* 持有引用防止被 free */
+    const tflite::Model                *model;
+    tflite::MicroInterpreter           *interpreter;
+    tflite::MicroMutableOpResolver<10> *resolver;
+    uint8_t                            *arena;
+    uint8_t                            *model_data;
 } sv_session_t;
 
 static sv_session_t *sv_session_create(void)
@@ -70,23 +73,31 @@ static sv_session_t *sv_session_create(void)
     /* OpResolver — 1D CNN:
      * Conv1d (实现为 Conv2D k×1) + BN + ReLU + GAP(Mean) + FC + L2_Norm
      * 全算子 TFLite Micro 原生支持 */
-    tflite::MicroMutableOpResolver<10> resolver;
-    resolver.AddConv2D();           /* Conv1d → Conv2D(k,1) */
-    resolver.AddFullyConnected();   /* FC(24→16) */
-    resolver.AddReshape();
-    resolver.AddRelu();
-    resolver.AddMean();             /* GlobalAveragePool */
-    resolver.AddQuantize();
-    resolver.AddDequantize();
-    resolver.AddMul();              /* BN scale (可能已 baked into weights) */
-    resolver.AddL2Normalization();  /* output L2 norm */
-    resolver.AddSoftmax();          /* (备用, 训练时可能留有) */
+    s->resolver = new tflite::MicroMutableOpResolver<10>();
+    if (s->resolver == nullptr) {
+        ESP_LOGE(TAG, "Failed to create resolver");
+        free(s->model_data);
+        free(s->arena);
+        free(s);
+        return NULL;
+    }
+    s->resolver->AddConv2D();           /* Conv1d → Conv2D(k,1) */
+    s->resolver->AddFullyConnected();   /* FC(24→16) */
+    s->resolver->AddReshape();
+    s->resolver->AddRelu();
+    s->resolver->AddMean();             /* GlobalAveragePool */
+    s->resolver->AddQuantize();
+    s->resolver->AddDequantize();
+    s->resolver->AddMul();              /* BN scale (可能已 baked into weights) */
+    s->resolver->AddL2Normalization();  /* output L2 norm */
+    s->resolver->AddSoftmax();          /* (备用, 训练时可能留有) */
 
     /* 创建解释器 */
     s->interpreter = new tflite::MicroInterpreter(
-        s->model, resolver, s->arena, SV_TENSOR_ARENA_SIZE);
+        s->model, *s->resolver, s->arena, SV_TENSOR_ARENA_SIZE);
     if (s->interpreter == nullptr) {
         ESP_LOGE(TAG, "Failed to create interpreter");
+        delete s->resolver;
         free(s->model_data);
         free(s->arena);
         free(s);
@@ -97,6 +108,7 @@ static sv_session_t *sv_session_create(void)
     if (status != kTfLiteOk) {
         ESP_LOGE(TAG, "Failed to allocate tensors: %d", status);
         delete s->interpreter;
+        delete s->resolver;
         free(s->model_data);
         free(s->arena);
         free(s);
@@ -112,6 +124,7 @@ static void sv_session_destroy(sv_session_t *s)
 {
     if (s == NULL) return;
     if (s->interpreter) delete s->interpreter;
+    if (s->resolver)    delete s->resolver;
     if (s->model_data)  free(s->model_data);
     if (s->arena)       free(s->arena);
     free(s);

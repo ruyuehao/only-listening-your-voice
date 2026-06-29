@@ -3,6 +3,7 @@
  */
 
 #include <string.h>
+#include <stdio.h>
 #include <sys/stat.h>
 #include "esp_log.h"
 #include "esp_partition.h"
@@ -100,11 +101,11 @@ uint8_t *model_loader_read(const char *filename, size_t *out_size)
         return NULL;
     }
 
-    size_t read = fread(data, 1, size, f);
+    size_t bytes_read = fread(data, 1, size, f);
     fclose(f);
 
-    if (read != size) {
-        ESP_LOGE(TAG, "fread incomplete: %d/%d bytes", read, size);
+    if (bytes_read != size) {
+        ESP_LOGE(TAG, "fread incomplete: %zu/%zu bytes", bytes_read, size);
         free(data);
         return NULL;
     }

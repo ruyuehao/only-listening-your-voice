@@ -7,6 +7,7 @@
 
 #include <string.h>
 #include <math.h>
+#include <stdlib.h>
 #include "esp_log.h"
 #include "esp_dsp.h"
 #include "micro_frontend.h"

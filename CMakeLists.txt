@@ -5,4 +5,9 @@
 cmake_minimum_required(VERSION 3.5)
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
+
+# Suppress -Wshadow from third-party components (esp-tflite-micro TFLM, etc.)
+set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} -Wno-shadow")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-shadow")
+
 project(esp32c3-voice-wake)

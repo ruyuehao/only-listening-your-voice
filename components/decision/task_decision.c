@@ -13,6 +13,7 @@
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 
 #include "sys_config.h"
 #include "fsm.h"
@@ -35,9 +36,6 @@ static void task_decision_main(void *pv_params)
 
     fsm_init();
     s_state_enter_us = esp_timer_get_time();
-
-    /* 等待的事件位 */
-    const EventBits_t wait_bits = EVENT_KWS_TRIGGERED | EVENT_SV_DONE;
 
     while (1) {
         fsm_state_t state = fsm_get_state();
@@ -66,20 +64,19 @@ static void task_decision_main(void *pv_params)
         /* ---- 事件处理 ---- */
         TickType_t timeout = pdMS_TO_TICKS(50);  /* 50ms 轮询（LED 刷新） */
 
-        /* IDLE 状态: 等待 KWS 触发 */
+        /* IDLE 状态: 等待 SV 启动 */
         if (state == STATE_IDLE) {
             EventBits_t bits = xEventGroupWaitBits(
-                g_event_group, EVENT_KWS_TRIGGERED,
+                g_event_group, EVENT_SV_STARTED,
                 pdTRUE,    /* 消费 */
-                pdTRUE,    /* 任意 */
+                pdFALSE,
                 timeout
             );
 
-            if (bits & EVENT_KWS_TRIGGERED) {
-                ESP_LOGI(TAG, "KWS triggered!");
+            if (bits & EVENT_SV_STARTED) {
+                ESP_LOGI(TAG, "KWS triggered — SV started!");
                 fsm_transition(STATE_VERIFYING);
                 s_state_enter_us = esp_timer_get_time();
-                /* TODO Phase 6: 触发 Task_SV 推理 */
             }
             continue;
         }

@@ -8,6 +8,7 @@
 #include "freertos/task.h"
 #include "driver/uart.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 
 #include "pin_defs.h"
 #include "sys_config.h"

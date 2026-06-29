@@ -29,6 +29,8 @@
 #include "pin_defs.h"
 #include "sys_config.h"
 #include "model_loader.h"
+#include "esp_chip_info.h"
+#include "esp_flash.h"
 
 /* 子系统 */
 #include "audio_capture.h"
@@ -43,7 +45,7 @@
 #include "led_indicator.h"
 #include "enroll.h"
 #include "task_decision.h"
-#include "event_reporter.h"
+// #include "event_reporter.h"    /* [4G UART] 当前无 4G 模块，暂不启用 */
 
 static const char *TAG = "MAIN";
 
@@ -62,12 +64,13 @@ void app_main(void)
     ESP_LOGI(TAG, "========================================");
     ESP_LOGI(TAG, " ESP32-C3 Voice Wake-up System v1.3");
     ESP_LOGI(TAG, " Build: %s %s", __DATE__, __TIME__);
-    ESP_LOGI(TAG, " Chip:  %s (rev %d), %d cores @ %d MHz",
-             esp_chip_info_get_model_name(),
-             esp_chip_info_get_revision(),
-             esp_chip_info_get_cores(),
-             esp_chip_info_get_cpu_freq());
-    ESP_LOGI(TAG, " Flash: %d MB", esp_chip_info_get_flash_size() / (1024 * 1024));
+    esp_chip_info_t chip_info;
+    esp_chip_info(&chip_info);
+    uint32_t flash_size = 0;
+    esp_flash_get_size(NULL, &flash_size);
+    ESP_LOGI(TAG, " Chip:  rev %d, %d cores",
+             chip_info.revision, chip_info.cores);
+    ESP_LOGI(TAG, " Flash: %zu MB", flash_size / (1024 * 1024));
     ESP_LOGI(TAG, "========================================");
 
     /* --- 1. NVS 初始化 --- */
@@ -194,13 +197,15 @@ static esp_err_t prv_subsystems_init(void)
         ESP_LOGI(TAG, "[OK] KWS engine initialized");
     }
 
-    /* ---- UART Communication ---- */
-    ret = event_reporter_init();
-    if (ret != ESP_OK) {
-        ESP_LOGW(TAG, "UART init failed (continuing without reporting)");
-    } else {
-        ESP_LOGI(TAG, "[OK] UART communication initialized");
-    }
+    // /* ---- UART Communication (4G) ---- */
+    // ret = event_reporter_init();
+    // if (ret != ESP_OK) {
+    //     ESP_LOGW(TAG, "UART init failed (continuing without reporting)");
+    // } else {
+    //     ESP_LOGI(TAG, "[OK] UART communication initialized");
+    // }
+    // [4G UART] 当前无 4G 模块，暂不启用 event_reporter
+    ESP_LOGI(TAG, "[SKIP] UART (4G) — no 4G module present");
 
     return ESP_OK;
 }

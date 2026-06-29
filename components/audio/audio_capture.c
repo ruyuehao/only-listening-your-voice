@@ -65,7 +65,7 @@ size_t audio_ringbuf_available(void)
     if (s_ringbuf == NULL) return 0;
 
     /* xRingbufferGetCurFreeSize 返回空闲空间 */
-    return RINGBUFFER_SIZE_BYTES - xRingbufferGetCurFreeSize(s_ringbuf, NULL);
+    return RINGBUFFER_SIZE_BYTES - xRingbufferGetCurFreeSize(s_ringbuf);
 }
 
 uint8_t audio_ringbuf_watermark(void)

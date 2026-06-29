@@ -51,14 +51,17 @@ static void task_sv_main(void *pv_params)
         EventBits_t bits = xEventGroupWaitBits(
             g_event_group,
             EVENT_KWS_TRIGGERED,
-            pdFALSE,    /* 不消费 — Decision 也需要此事件 */
-            pdFALSE,    /* 等待所有 */
+            pdTRUE,     /* 消费 — 防止优先级反转导致重复触发 */
+            pdFALSE,
             portMAX_DELAY
         );
 
         if (!(bits & EVENT_KWS_TRIGGERED)) {
             continue;
         }
+
+        /* 通知 Decision 任务切换状态 */
+        xEventGroupSetBits(g_event_group, EVENT_SV_STARTED);
 
         /* 检查特征缓冲区 */
         if (!feature_buffer_ready_for_sv()) {

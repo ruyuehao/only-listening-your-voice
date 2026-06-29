@@ -88,6 +88,6 @@
  * ================================================================ */
 #define EVENT_AUDIO_READY       (1 << 0)    /* AudioCapture: 100ms PCM 累积 (预留) */
 #define EVENT_KWS_TRIGGERED     (1 << 1)    /* KWS: 唤醒词检测到 */
-/* (1 << 2) reserved */
+#define EVENT_SV_STARTED        (1 << 2)    /* SV: 验证开始（通知 Decision 切换状态） */
 #define EVENT_SV_DONE           (1 << 3)    /* SV: 声纹验证完成 */
 /* (1 << 4) reserved */
