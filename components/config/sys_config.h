@@ -42,7 +42,10 @@
  * ================================================================ */
 #define ENROLL_LONG_PRESS_MS    3000        // 长按 3s 进入注册模式
 #define ENROLL_SAMPLE_COUNT     5           // 录制 5 次唤醒词
-#define ENROLL_SAMPLE_INTERVAL_MS  2000     // 每次间隔 2s
+#define ENROLL_SAMPLE_INTERVAL_MS  3000     // 每次间隔 3s
+#define ENROLL_WAIT_MS          600         // 黄色"准备"阶段
+#define ENROLL_SPEAK_MS         2000        // 绿色"请说唤醒词"阶段
+#define ENROLL_SETTLE_MS        200         // 录制后白色确认
 #define DEBOUNCE_MS             50          // 按键消抖 50ms
 #define NVS_NAMESPACE           "sv_enroll"
 #define NVS_KEY_TEMPLATE        "sv_template"

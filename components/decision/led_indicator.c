@@ -156,6 +156,30 @@ void led_update_for_state(fsm_state_t state)
         }
         break;
 
+    case STATE_ENROLL_COUNTDOWN:
+        /* 黄色 1Hz 闪烁: 500ms on / 500ms off */
+        if (elapsed_us >= 500000) {
+            s_blink_phase = !s_blink_phase;
+            s_last_toggle_us = now_us;
+
+            if (s_blink_phase) {
+                led_strip_set_pixel(s_led_strip, 0, 0, 255, 255);  /* GRB: R=255,G=255 → 黄 */
+            } else {
+                led_strip_set_pixel(s_led_strip, 0, 0, 0, 0);
+            }
+            led_strip_refresh(s_led_strip);
+        }
+        break;
+
+    case STATE_ENROLL_SPEAK:
+        /* 绿色常亮 — "请说唤醒词" */
+        if (!s_blink_phase || elapsed_us > 1000000) {
+            s_blink_phase = true;
+            led_strip_set_pixel(s_led_strip, 0, 0, 255, 0);  /* GRB: G=255 */
+            led_strip_refresh(s_led_strip);
+        }
+        break;
+
     case STATE_ENROLL_SAVED:
         /* 红色常亮（由 Enroll 任务在 2s 后重启） */
         led_strip_set_pixel(s_led_strip, 0, 255, 0, 0);

@@ -104,18 +104,28 @@ static void enroll_flow(void)
     ESP_LOGI(TAG, "========================================");
 
     fsm_transition(STATE_ENROLL_TRIGGER);
-    vTaskDelay(pdMS_TO_TICKS(500));
 
     float embeddings[ENROLL_SAMPLE_COUNT][SV_EMBEDDING_DIM];
     memset(embeddings, 0, sizeof(embeddings));
 
     for (int i = 0; i < ENROLL_SAMPLE_COUNT; i++) {
         ESP_LOGI(TAG, "--- Record %d/%d ---", i + 1, ENROLL_SAMPLE_COUNT);
-        fsm_transition(STATE_ENROLL_RECORD);
 
-        /* 等用户说唤醒词 */
-        vTaskDelay(pdMS_TO_TICKS(ENROLL_SAMPLE_INTERVAL_MS));
+        /* 第 1 次循环: 蓝色快闪标记进入录制模式 */
+        if (i == 0) {
+            fsm_transition(STATE_ENROLL_RECORD);
+            vTaskDelay(pdMS_TO_TICKS(200));
+        }
 
+        /* 黄色 1Hz 闪烁 — "准备" */
+        fsm_transition(STATE_ENROLL_COUNTDOWN);
+        vTaskDelay(pdMS_TO_TICKS(ENROLL_WAIT_MS));
+
+        /* 绿色常亮 — "请说唤醒词！" */
+        fsm_transition(STATE_ENROLL_SPEAK);
+        vTaskDelay(pdMS_TO_TICKS(ENROLL_SPEAK_MS));
+
+        /* 录制 Embedding */
         esp_err_t ret = enroll_record_sample(embeddings[i]);
         if (ret != ESP_OK) {
             ESP_LOGE(TAG, "Record %d failed: %d — aborting enrollment", i + 1, ret);
@@ -123,7 +133,12 @@ static void enroll_flow(void)
             return;
         }
 
-        /* 串口日志 */
+        /* 白色快闪确认 */
+        led_set_color(&LED_COLOR_WHITE);
+        vTaskDelay(pdMS_TO_TICKS(100));
+        led_set_color(&LED_COLOR_OFF);
+        vTaskDelay(pdMS_TO_TICKS(100));
+
         printf("[ENROLL] Record %d/%d OK\n", i + 1, ENROLL_SAMPLE_COUNT);
     }
 

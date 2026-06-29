@@ -26,7 +26,9 @@ typedef enum {
     STATE_ACCEPTED,         /* 通过 (红灯常亮 1s) */
     STATE_REJECTED,         /* 拒绝 (红灯闪烁 3 次) */
     STATE_ENROLL_TRIGGER,   /* 注册触发 (蓝灯 2Hz 快闪) */
-    STATE_ENROLL_RECORD,    /* 录制中 (蓝灯闪烁) */
+    STATE_ENROLL_RECORD,    /* 录制模式 (蓝灯快闪，仅首次循环) */
+    STATE_ENROLL_COUNTDOWN, /* 准备 (黄色 1Hz 闪烁) */
+    STATE_ENROLL_SPEAK,     /* 请说唤醒词 (绿色常亮) */
     STATE_ENROLL_SAVED,     /* 注册完成 (红灯长亮 2s) */
 } fsm_state_t;
 
